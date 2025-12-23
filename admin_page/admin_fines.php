@@ -2,9 +2,6 @@
 session_start();
 require_once "db_connection.php";
 
-/* ===============================
-   ADMIN AUTH CHECK
-================================ */
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../admin_login.php");
     exit;
@@ -14,9 +11,7 @@ $admin_name = $_SESSION['admin_name'] ?? 'Admin';
 
 $success = $error = "";
 
-/* ===============================
-   HANDLE ASSIGN FINE
-================================ */
+/* HANDLE ASSIGN FINE */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $member_code = trim($_POST['member_code'] ?? '');
@@ -44,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("ssd", $member_code, $reason, $amount);
 
             if ($stmt->execute()) {
-                $success = "Fine of KES " . number_format($amount) . " assigned to " . htmlspecialchars($member['full_name']);
+                $success = "Fine of KES " . number_format($amount, 2) . " assigned to " . htmlspecialchars($member['full_name']);
             } else {
                 $error = "Failed to assign fine.";
             }
@@ -53,16 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-/* ===============================
-   FETCH MEMBERS FOR DROPDOWN
-================================ */
+/* FETCH MEMBERS FOR DROPDOWN */
 $members = $conn->query("SELECT member_id, full_name FROM members WHERE status = 'active' ORDER BY full_name");
 
-/* ===============================
-   SEARCH & FILTER FINES
-================================ */
+/* SEARCH & FILTER - DEFAULT TO ALL */
 $search = trim($_GET['search'] ?? '');
-$status_filter = $_GET['status'] ?? 'all';
+$status_filter = $_GET['status'] ?? 'all'; // Default: all
 
 $where = "";
 $params = [];
@@ -97,9 +88,6 @@ $stmt->execute();
 $fines = $stmt->get_result();
 $stmt->close();
 
-/* ===============================
-   TOTAL UNPAID FINES
-================================ */
 $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE status = 'unpaid'")->fetch_array()[0] ?? 0;
 ?>
 
@@ -113,7 +101,7 @@ $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE s
 </head>
 <body class="bg-gray-100 min-h-screen flex">
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR - Notification link removed -->
     <aside class="w-64 bg-gradient-to-b from-blue-700 to-blue-800 text-white p-6">
         <h2 class="text-xl font-bold mb-8">Chama Admin</h2>
         <nav class="space-y-4 text-sm">
@@ -123,7 +111,6 @@ $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE s
             <a href="admin_contribution.php" class="block hover:bg-blue-600 px-4 py-2 rounded">Contributions</a>
             <a href="admin_loan.php" class="block hover:bg-blue-600 px-4 py-2 rounded">Loan Approvals</a>
             <a href="admin_fines.php" class="block bg-blue-600 px-4 py-2 rounded font-semibold">Fines</a>
-            <a href="admin_notification.php" class="block hover:bg-blue-600 px-4 py-2 rounded">Notifications</a>
             <a href="admin_logout.php" class="block text-red-200 hover:bg-red-600 px-4 py-2 rounded">Logout</a>
         </nav>
         <div class="mt-auto pt-6 border-t border-blue-600">
@@ -196,21 +183,21 @@ $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE s
                 </form>
             </div>
 
-            <!-- SEARCH & FILTER -->
+            <!-- FILTER -->
             <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                           placeholder="Search by member name, ID, or reason..."
+                           placeholder="Search by member, ID, or reason..."
                            class="border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500">
                     <select name="status" class="border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500">
-                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Status</option>
+                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Fines</option>
                         <option value="unpaid" <?= $status_filter === 'unpaid' ? 'selected' : '' ?>>Unpaid Only</option>
                         <option value="paid" <?= $status_filter === 'paid' ? 'selected' : '' ?>>Paid Only</option>
                     </select>
                     <div class="flex gap-3">
                         <button type="submit"
                                 class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition shadow">
-                            Apply Filter
+                            Apply
                         </button>
                         <?php if ($search !== '' || $status_filter !== 'all'): ?>
                             <a href="admin_fines.php"
@@ -222,7 +209,7 @@ $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE s
                 </form>
             </div>
 
-            <!-- FINE HISTORY TABLE -->
+            <!-- HISTORY TABLE -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden">
                 <div class="px-8 py-6 border-b border-gray-200">
                     <h2 class="text-xl font-semibold text-gray-800">Fines History (<?= $fines->num_rows ?> records)</h2>
@@ -260,8 +247,7 @@ $total_unpaid = $conn->query("SELECT COALESCE(SUM(amount), 0) FROM fines WHERE s
                                 <tr>
                                     <td colspan="5" class="px-6 py-16 text-center text-gray-500">
                                         <div class="text-6xl mb-4">⚖️</div>
-                                        <p class="text-xl font-medium">No fines found</p>
-                                        <p class="mt-2">All members are compliant!</p>
+                                        <p class="text-xl font-medium">No fines recorded</p>
                                     </td>
                                 </tr>
                             <?php endif; ?>

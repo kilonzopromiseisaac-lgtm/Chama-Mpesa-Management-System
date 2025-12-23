@@ -2,21 +2,21 @@
 session_start();
 require_once "db_connection.php";
 
-if (!isset($_SESSION['member_id'])) {
+if (!isset($_SESSION['member_code']) && !isset($_SESSION['member_id'])) {
     header("Location: member_login.php");
     exit;
 }
 
-// Use the STRING member_id (e.g. "CHM-2025-001") - NOT the numeric id
+// Use the STRING Member ID (CHM-2025-XXXX) - this matches fines table
 $member_code = $_SESSION['member_code'] ?? $_SESSION['member_id'] ?? '';
 $member_name = $_SESSION['full_name'] ?? 'Member';
 
 if ($member_code === '') {
-    die("Member session error.");
+    die("Error: Member ID not found in session.");
 }
 
 /* ===============================
-   MARK FINE AS PAID (AJAX)
+   MARK AS PAID (AJAX)
 ================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fine_id'])) {
     $fine_id = (int)$_POST['fine_id'];
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['fine_id'])) {
 }
 
 /* ===============================
-   FETCH MEMBER FINES
+   FETCH MEMBER'S FINES (using string member_id)
 ================================ */
 $stmt = $conn->prepare("
     SELECT id, reason, amount, status, issued_date 
@@ -89,7 +89,7 @@ foreach ($fines as $f) {
             <h1 class="text-3xl font-bold text-gray-800 mb-2">My Fines</h1>
             <p class="text-gray-600 mb-8">View and settle your outstanding fines</p>
 
-            <!-- Summary -->
+            <!-- Summary Alert -->
             <?php if ($unpaid_count > 0): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg mb-8">
                     <p class="font-bold text-lg">You have <?= $unpaid_count ?> unpaid fine<?= $unpaid_count > 1 ? 's' : '' ?></p>
@@ -123,7 +123,7 @@ foreach ($fines as $f) {
                                 <?php foreach ($fines as $fine): ?>
                                 <tr class="hover:bg-gray-50 transition">
                                     <td class="px-6 py-4"><?= htmlspecialchars($fine['reason']) ?></td>
-                                    <td class="px-6 py-4 text-center font-bold">
+                                    <td class="px-6 py-4 text-center font-bold text-red-600">
                                         KES <?= number_format($fine['amount'], 2) ?>
                                     </td>
                                     <td class="px-6 py-4 text-center">
@@ -142,7 +142,7 @@ foreach ($fines as $f) {
                                                 Mark as Paid
                                             </button>
                                         <?php else: ?>
-                                            <span class="text-green-600 font-medium">Paid ✓</span>
+                                            <span class="text-green-600 font-semibold">Paid ✓</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -151,8 +151,8 @@ foreach ($fines as $f) {
                                 <tr>
                                     <td colspan="5" class="px-6 py-16 text-center text-gray-500">
                                         <div class="text-6xl mb-4">😊</div>
-                                        <p class="text-xl">No fines recorded</p>
-                                        <p class="mt-2">Great job staying compliant!</p>
+                                        <p class="text-xl font-medium">No fines recorded</p>
+                                        <p class="mt-2">Keep up the great discipline!</p>
                                     </td>
                                 </tr>
                             <?php endif; ?>
@@ -171,19 +171,23 @@ foreach ($fines as $f) {
             const formData = new FormData();
             formData.append("fine_id", fineId);
 
-            fetch("", { method: "POST", body: formData })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const row = btn.closest("tr");
-                        row.querySelector("span.inline-block").textContent = "Paid";
-                        row.querySelector("span.inline-block").className = "inline-block px-4 py-2 rounded-full text-xs font-medium bg-green-100 text-green-700";
-                        btn.parentElement.innerHTML = '<span class="text-green-600 font-medium">Paid ✓</span>';
-                        location.reload(); // Refresh to update summary
-                    } else {
-                        alert("Failed to update. Try again.");
-                    }
-                });
+            fetch("", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const row = btn.closest("tr");
+                    row.querySelector("span.inline-block").textContent = "Paid";
+                    row.querySelector("span.inline-block").className = "inline-block px-4 py-2 rounded-full text-xs font-medium bg-green-100 text-green-700";
+                    btn.parentElement.innerHTML = '<span class="text-green-600 font-semibold">Paid ✓</span>';
+                    location.reload(); // Update summary
+                } else {
+                    alert("Failed to update fine status.");
+                }
+            })
+            .catch(() => alert("Network error."));
         }
     </script>
 </body>
